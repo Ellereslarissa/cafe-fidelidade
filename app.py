@@ -364,7 +364,7 @@ def main():
     st.caption("Seu espaço de café e coworking em Belém — acumule pontos e troque por experiências!")
 
     try:
-        st.sidebar.image("logo.png", use_column_width=True)
+        st.sidebar.image("logo.png", use_container_width=True)
     except Exception:
         pass
     st.sidebar.markdown(
