@@ -312,8 +312,8 @@ def page_find():
                                 st.error("Não foi possível excluir. Verifique se o cliente ainda existe.")
                         else:
                                 st.warning("Marque a confirmação antes de excluir.")
-                        else:
-                            st.info("Nenhum cliente encontrado.")
+                    else:
+                        st.info("Nenhum cliente encontrado.")
 
 def page_customers():
     st.subheader("Clientes (recentes)")
