@@ -310,7 +310,7 @@ def page_find():
                                 st.success(f"Cliente **{name}** excluído com sucesso.")
                             else:
                                 st.error("Não foi possível excluir. Verifique se o cliente ainda existe.")
-                            else:
+                        else:
                                 st.warning("Marque a confirmação antes de excluir.")
                         else:
                             st.info("Nenhum cliente encontrado.")
