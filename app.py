@@ -1,3 +1,4 @@
+
 import math
 import sqlite3
 from datetime import datetime
@@ -46,9 +47,9 @@ def init_db():
         value TEXT NOT NULL
     );
     """)
-    # defaults
-    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('stamps_needed', '10');")   # precisa de 10 carimbos
-    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('reais_per_stamp', '50');") # cada R$50 = 1 carimbo
+    # defaults (10 carimbos p/ prêmio, 1 carimbo a cada R$ 50)
+    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('stamps_needed', '10');")
+    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('reais_per_stamp', '50');")
     conn.commit()
     conn.close()
 
@@ -59,7 +60,7 @@ def get_config():
     data = dict(cur.fetchall())
     conn.close()
     data["stamps_needed"] = int(data.get("stamps_needed", "10"))
-    data["reais_per_stamp"] = float(data.get("reais_per_stamp", "10"))
+    data["reais_per_stamp"] = float(data.get("reais_per_stamp", "50"))
     return data
 
 def set_config(stamps_needed: int, reais_per_stamp: float):
@@ -163,6 +164,22 @@ def redeem_reward(customer_id: int):
     conn.commit()
     conn.close()
     return True, "Prêmio resgatado com sucesso!"
+
+# -------------------------
+# EXCLUSÃO DE CLIENTE
+# -------------------------
+def delete_customer(customer_id: int) -> bool:
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM customers WHERE id = ?;", (int(customer_id),))
+        conn.commit()
+        deleted = (cur.rowcount > 0)
+        conn.close()
+        return deleted
+    except Exception as e:
+        st.error(f"Erro ao excluir: {e}")
+        return False
 
 def list_customers(limit=200):
     conn = get_conn()
@@ -301,19 +318,18 @@ def page_find():
                     st.write("Carimbos:", stamps, " | Cartão:", loyalty_card(stamps, cfg["stamps_needed"]))
                     st.write("Total gasto: R$ {:.2f}".format(total or 0))
                     st.write("Cadastrado em:", created)
+
                     st.divider()
                     st.markdown("### ⚠️ Excluir cliente")
-                    confirm = st.checkbox(f"Confirmo que desejo excluir **{name}** e todo o seu histórico.")
-                    if st.button(f"Excluir {name}", type="primary", help="Essa ação é irreversível."):
+                    confirm = st.checkbox(f"Confirmo que desejo excluir **{name}** e todo o seu histórico.", key=f"confirm_{cid}")
+                    if st.button(f"Excluir {name}", type="primary", help="Essa ação é irreversível.", key=f"del_{cid}"):
                         if confirm:
                             if delete_customer(cid):
                                 st.success(f"Cliente **{name}** excluído com sucesso.")
-                            else:
-                                st.error("Não foi possível excluir. Verifique se o cliente ainda existe.")
                         else:
-                                st.warning("Marque a confirmação antes de excluir.")
-                    else:
-                        st.info("Nenhum cliente encontrado.")
+                            st.warning("Marque a confirmação antes de excluir.")
+        else:
+            st.info("Nenhum cliente encontrado.")
 
 def page_customers():
     st.subheader("Clientes (recentes)")
