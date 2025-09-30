@@ -3,7 +3,7 @@
 
 Este é um app simples de fidelidade para cafeterias. Com ele, você:
 - Cadastra clientes (nome, telefone, e-mail)
-- Registra compras e concede **carimbos** automaticamente (ex.: 1 carimbo a cada R$ 10)
+- Registra compras e concede **carimbos** automaticamente (ex.: 1 carimbo a cada R$ 50)
 - Mostra um **cartão visual** de carimbos
 - **Resgata prêmios** quando o cliente atinge o número de carimbos configurado
 - Acompanha métricas no painel Admin
@@ -20,7 +20,7 @@ O banco de dados `data.db` será criado automaticamente no primeiro uso (SQLite)
 ## Regras do programa
 - Em **Admin**, ajuste:
   - `Carimbos necessários para prêmio` (padrão: 10)
-  - `R$ por carimbo` (padrão: 10 → 1 carimbo a cada R$ 10)
+  - `R$ por carimbo` (padrão: 10 → 1 carimbo a cada R$ 50)
 
 ## Deploy (site recomendado)
 - **Streamlit Community Cloud**: crie um repositório no GitHub com estes arquivos e publique em https://streamlit.io/cloud (conecte sua conta GitHub e selecione o repo).
