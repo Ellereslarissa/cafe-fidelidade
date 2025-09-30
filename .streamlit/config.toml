@@ -1,0 +1,10 @@
+config.toml
+[theme]
+primaryColor="#6F4E37"              # Marrom café (botões e destaques)
+backgroundColor="#FDF6EC"           # Bege claro (fundo principal)
+secondaryBackgroundColor="#E3D9C6"  # Bege médio (caixas, sidebar)
+textColor="#2E2E2E"                 # Texto em cinza escuro
+font="sans serif"
+
+[general]
+pageTitle = "Coffee Break Belém - Café Coworking"
