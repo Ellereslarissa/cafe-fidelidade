@@ -302,19 +302,18 @@ def page_find():
                     st.write("Total gasto: R$ {:.2f}".format(total or 0))
                     st.write("Cadastrado em:", created)
                     st.divider()
-st.markdown("### ⚠️ Excluir cliente")
-confirm = st.checkbox(f"Confirmo que desejo excluir **{name}** e todo o seu histórico.")
-if st.button(f"Excluir {name}", type="primary", help="Essa ação é irreversível."):
-    if confirm:
-        if delete_customer(cid):
-            st.success(f"Cliente **{name}** excluído com sucesso.")
-        else:
-            st.error("Não foi possível excluir. Verifique se o cliente ainda existe.")
-    else:
-        st.warning("Marque a confirmação antes de excluir.")
-
-        else:
-            st.info("Nenhum cliente encontrado.")
+                    st.markdown("### ⚠️ Excluir cliente")
+                    confirm = st.checkbox(f"Confirmo que desejo excluir **{name}** e todo o seu histórico.")
+                    if st.button(f"Excluir {name}", type="primary", help="Essa ação é irreversível."):
+                        if confirm:
+                            if delete_customer(cid):
+                                st.success(f"Cliente **{name}** excluído com sucesso.")
+                            else:
+                                st.error("Não foi possível excluir. Verifique se o cliente ainda existe.")
+                            else:
+                                st.warning("Marque a confirmação antes de excluir.")
+                        else:
+                            st.info("Nenhum cliente encontrado.")
 
 def page_customers():
     st.subheader("Clientes (recentes)")
