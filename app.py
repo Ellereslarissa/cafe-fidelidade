@@ -47,8 +47,8 @@ def init_db():
     );
     """)
     # defaults
-    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('stamps_needed', '10');")
-    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('reais_per_stamp', '10');")
+    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('stamps_needed', '10');")   # precisa de 10 carimbos
+    cur.execute("INSERT OR IGNORE INTO config(key, value) VALUES('reais_per_stamp', '50');") # cada R$50 = 1 carimbo
     conn.commit()
     conn.close()
 
