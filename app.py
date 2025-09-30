@@ -1,8 +1,8 @@
-
 import math
 import sqlite3
 from datetime import datetime
 import streamlit as st
+from urllib.parse import quote
 
 DB_PATH = "data.db"
 
@@ -58,7 +58,6 @@ def get_config():
     cur.execute("SELECT key, value FROM config;")
     data = dict(cur.fetchall())
     conn.close()
-    # cast
     data["stamps_needed"] = int(data.get("stamps_needed", "10"))
     data["reais_per_stamp"] = float(data.get("reais_per_stamp", "10"))
     return data
@@ -82,7 +81,6 @@ def upsert_customer(name, phone=None, email=None):
         """, (name.strip(), (phone or None), (email or None), now))
         conn.commit()
     except sqlite3.IntegrityError:
-        # phone already exists -> update name/email
         cur.execute("""
             UPDATE customers SET name = COALESCE(?, name), email = COALESCE(?, email)
             WHERE phone = ?;
@@ -107,22 +105,40 @@ def find_customer_by_name_like(q):
     conn.close()
     return rows
 
+# -------------------------
+# add_purchase com detecção de elegibilidade
+# -------------------------
 def add_purchase(customer_id: int, amount: float):
     cfg = get_config()
     reais_per_stamp = cfg["reais_per_stamp"]
-    stamps_to_add = int(math.floor(amount / reais_per_stamp)) if reais_per_stamp > 0 else 0
+    need = cfg["stamps_needed"]
 
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("UPDATE customers SET stamps = stamps + ?, total_purchases = total_purchases + ? WHERE id = ?;",
-                (stamps_to_add, float(amount), int(customer_id)))
+
+    cur.execute("SELECT stamps FROM customers WHERE id = ?;", (int(customer_id),))
+    row = cur.fetchone()
+    before = row[0] if row else 0
+
+    stamps_to_add = int(math.floor(amount / reais_per_stamp)) if reais_per_stamp > 0 else 0
+
+    cur.execute(
+        "UPDATE customers SET stamps = stamps + ?, total_purchases = total_purchases + ? WHERE id = ?;",
+        (stamps_to_add, float(amount), int(customer_id))
+    )
     cur.execute("""
         INSERT INTO transactions(customer_id, amount, stamps_added, type, note, ts)
         VALUES(?, ?, ?, 'purchase', NULL, ?);
     """, (int(customer_id), float(amount), int(stamps_to_add), datetime.utcnow().isoformat()))
+
+    cur.execute("SELECT stamps FROM customers WHERE id = ?;", (int(customer_id),))
+    after = cur.fetchone()[0]
+
     conn.commit()
     conn.close()
-    return stamps_to_add
+
+    became_eligible_now = (before < need) and (after >= need)
+    return stamps_to_add, after, need, became_eligible_now
 
 def redeem_reward(customer_id: int):
     cfg = get_config()
@@ -177,24 +193,28 @@ def get_stats():
 # -------------------------
 # UI helpers
 # -------------------------
-
 def loyalty_card(stamps: int, needed: int):
     filled = min(stamps, needed)
     empty = max(needed - filled, 0)
-    # Use emojis for a clean stamp visual
     return " ".join(["☕"] * filled + ["○"] * empty)
 
-def header():
-    st.markdown("<h1 style='margin-bottom:0'>☕ Cartão Fidelidade - Cafeteria</h1>", unsafe_allow_html=True)
-    st.caption("Ganhe carimbos a cada compra e troque por prêmios!")
-
 def nav():
-    return st.sidebar.radio("Navegação", ["Registrar Cliente", "Nova Compra", "Resgatar Prêmio", "Buscar Cliente", "Clientes", "Admin"], index=0)
+    return st.sidebar.radio(
+        "Navegação",
+        ["Registrar Cliente", "Nova Compra", "Resgatar Prêmio", "Buscar Cliente", "Clientes", "Admin"],
+        index=0
+    )
+
+# -------------------------
+# Link de WhatsApp
+# -------------------------
+def wa_link(phone: str, msg: str) -> str:
+    digits = "".join(c for c in (phone or "") if c.isdigit())
+    return f"https://wa.me/{digits}?text={quote(msg)}"
 
 # -------------------------
 # Pages
 # -------------------------
-
 def page_register():
     st.subheader("Registrar novo cliente")
     with st.form("register_form"):
@@ -211,18 +231,40 @@ def page_register():
 
 def page_purchase():
     st.subheader("Nova compra")
-    phone = st.text_input("Telefone do cliente (para localizar)")
-    if phone:
-        c = find_customer_by_phone(phone.strip())
+    phone_input = st.text_input("Telefone do cliente (para localizar)")
+    if phone_input:
+        c = find_customer_by_phone(phone_input.strip())
         if c:
             cid, name, phone, email, stamps, total, created = c
             cfg = get_config()
-            st.info(f"Cliente: **{name}** | Carimbos: **{stamps}** | Necessários p/ prêmio: **{cfg['stamps_needed']}**")
+            st.info(
+                f"Cliente: **{name}** | Carimbos: **{stamps}** | "
+                f"Necessários p/ prêmio: **{cfg['stamps_needed']}**"
+            )
             st.write("Cartão:", loyalty_card(stamps, cfg["stamps_needed"]))
-            amount = st.number_input(f"Valor da compra (R$) — 1 carimbo a cada R$ {cfg['reais_per_stamp']}", min_value=0.0, step=1.0, format="%.2f")
+            amount = st.number_input(
+                f"Valor da compra (R$) — 1 carimbo a cada R$ {cfg['reais_per_stamp']}",
+                min_value=0.0, step=1.0, format="%.2f"
+            )
             if st.button("Registrar compra"):
-                added = add_purchase(cid, amount)
-                st.success(f"Compra registrada. Carimbos adicionados: {added}.")
+                added, after, need, became_eligible_now = add_purchase(cid, amount)
+                st.success(f"Compra registrada. Carimbos adicionados: {added}. Saldo: {after}/{need}.")
+
+                if became_eligible_now:
+                    st.balloons()
+                    st.success("🎉 Parabéns! O cliente agora tem carimbos suficientes para resgatar o prêmio.")
+                    st.info("Você pode resgatar na aba **Resgatar Prêmio** ou enviar uma notificação:")
+
+                    if phone:
+                        msg = (
+                            f"Olá, {name}! 🎉 Você completou seu Cartão Fidelidade da "
+                            f"Coffee Break Belém - Café Coworking. "
+                            f"Passe na loja e resgate seu prêmio! Saldo: {after}/{need} carimbos."
+                        )
+                        link = wa_link(phone, msg)
+                        st.link_button("Enviar WhatsApp agora 📲", link)
+                    else:
+                        st.warning("Cliente sem telefone cadastrado. Edite o cadastro para usar o WhatsApp.")
         else:
             st.warning("Cliente não encontrado. Cadastre primeiro na aba 'Registrar Cliente'.")
 
@@ -307,9 +349,29 @@ def page_admin():
 # Main
 # -------------------------
 def main():
-    st.set_page_config(page_title="Cartão Fidelidade", page_icon="☕", layout="wide")
+    st.set_page_config(
+        page_title="Coffee Break Belém - Café Coworking",
+        page_icon="☕",
+        layout="wide"
+    )
+
     init_db()
-    header()
+
+    st.markdown(
+        "<h1 style='margin-bottom:0; color:#6F4E37'>☕ Coffee Break Belém - Café Coworking</h1>",
+        unsafe_allow_html=True
+    )
+    st.caption("Seu espaço de café e coworking em Belém — acumule pontos e troque por experiências!")
+
+    try:
+        st.sidebar.image("logo.png", use_column_width=True)
+    except Exception:
+        pass
+    st.sidebar.markdown(
+        "<h3 style='color:#6F4E37'>Coffee Break Belém - Café Coworking</h3>",
+        unsafe_allow_html=True
+    )
+
     choice = nav()
     if choice == "Registrar Cliente":
         page_register()
